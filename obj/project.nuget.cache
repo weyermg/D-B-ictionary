@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "192lvHB9Qj4=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\weyermg\\Desktop\\csse433\\Project\\D(B)ictionary\\D(B)ictionary.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\weyermg\\.nuget\\packages\\respite\\3.4.0\\respite.3.4.0.nupkg.sha512",
+    "C:\\Users\\weyermg\\.nuget\\packages\\stackexchange.redis\\3.4.0\\stackexchange.redis.3.4.0.nupkg.sha512",
+    "C:\\Users\\weyermg\\.nuget\\packages\\system.io.hashing\\10.0.12\\system.io.hashing.10.0.12.nupkg.sha512"
+  ],
+  "logs": []
+}
