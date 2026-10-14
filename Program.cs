@@ -1,13 +1,12 @@
-using System;
-
-
-namespace Interaction
+if (args.Contains("--ingest", StringComparer.Ordinal))
 {
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            Ingester.Parser.Skim();
-        }
-    }
+    Ingester.Parser.Skim();
+    return;
 }
+
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+app.UseDefaultFiles();
+app.UseStaticFiles();
+app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ok" }));
+app.Run();
