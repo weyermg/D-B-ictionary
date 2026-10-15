@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { BookOpenText, LoaderCircle, Plus, Search, X } from 'lucide-react'
+import { BookOpenText, LoaderCircle, Minus, Plus, Search, X } from 'lucide-react'
 import { addWord, searchWords } from './api'
 import type { CreateWord, Word } from './api'
 import './dictionary.css'
@@ -100,21 +100,25 @@ function App() {
             </div>
             <ol className="results-list">
               {results.map((word, index) => (
-                <li className="result-row" key={word.id} style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
+                <li className="result-row" key={word.documentId} style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
                   <span className="result-number">{(index + 1).toString().padStart(2, '0')}</span>
                   <article className="result-content">
                     <div className="result-title-row">
                       <h2>{word.word}</h2>
                       <span className="language-tag">{word.language}</span>
                     </div>
-                    <ol className="definitions">
-                      {word.definitions.map((definition, definitionIndex) => (
-                        <li key={`${word.id}-${definitionIndex}`}>{definition}</li>
-                      ))}
-                    </ol>
+                    {word.etymologies.map((etymology, etymologyIndex) => (
+                      <section className="etymology-block" key={`${word.documentId}-${etymologyIndex}`}>
+                        <div className="etymology-heading">ETYMOLOGY {etymologyIndex + 1}</div>
+                        <ol className="definitions">
+                          {etymology.definitions.map((definition, definitionIndex) => (
+                            <li key={`${word.documentId}-${etymologyIndex}-${definitionIndex}`}>{definition}</li>
+                          ))}
+                        </ol>
+                      </section>
+                    ))}
                     <div className="entry-meta">
-                      <span>ETYMOLOGY {word.etymologyIndex}</span>
-                      <span>DEFINITION {word.definitionIndex}</span>
+                      <span>INTERNAL ID {word.internalId}</span>
                     </div>
                   </article>
                 </li>
@@ -135,23 +139,24 @@ interface AddWordDialogProps {
 }
 
 function AddWordDialog({ onClose, onSubmit }: AddWordDialogProps) {
+  const [internalId, setInternalId] = useState('1')
   const [word, setWord] = useState('')
   const [language, setLanguage] = useState('en')
-  const [etymologyIndex, setEtymologyIndex] = useState('1')
-  const [definitionIndex, setDefinitionIndex] = useState('1')
-  const [definitions, setDefinitions] = useState('')
+  const [etymologies, setEtymologies] = useState([{ definitions: '' }])
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const definitionList = definitions
-      .split(/\r?\n/)
-      .map((definition) => definition.trim())
-      .filter(Boolean)
+    const normalizedEtymologies = etymologies.map((etymology) => ({
+      definitions: etymology.definitions
+        .split(/\r?\n/)
+        .map((definition) => definition.trim())
+        .filter(Boolean),
+    }))
 
-    if (definitionList.length === 0) {
-      setError('Add at least one definition.')
+    if (normalizedEtymologies.some((etymology) => etymology.definitions.length === 0)) {
+      setError('Add at least one definition to every etymology.')
       return
     }
 
@@ -159,11 +164,10 @@ function AddWordDialog({ onClose, onSubmit }: AddWordDialogProps) {
     setError('')
     try {
       await onSubmit({
+        internalId: Number(internalId),
         word: word.trim(),
         language: language.trim(),
-        etymologyIndex: Number(etymologyIndex),
-        definitionIndex: Number(definitionIndex),
-        definitions: definitionList,
+        etymologies: normalizedEtymologies,
       })
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Could not add this word.')
@@ -188,6 +192,10 @@ function AddWordDialog({ onClose, onSubmit }: AddWordDialogProps) {
         </div>
         <form onSubmit={submit}>
           <label>
+            <span>Internal ID</span>
+            <input min="0" required step="1" type="number" value={internalId} onChange={(event) => setInternalId(event.currentTarget.value)} />
+          </label>
+          <label>
             <span>Word</span>
             <input autoFocus maxLength={200} required value={word} onChange={(event) => setWord(event.currentTarget.value)} />
           </label>
@@ -196,19 +204,44 @@ function AddWordDialog({ onClose, onSubmit }: AddWordDialogProps) {
               <span>Language</span>
               <input maxLength={32} required value={language} onChange={(event) => setLanguage(event.currentTarget.value)} />
             </label>
-            <label>
-              <span>Etymology index</span>
-              <input min="0" required step="1" type="number" value={etymologyIndex} onChange={(event) => setEtymologyIndex(event.currentTarget.value)} />
-            </label>
-            <label>
-              <span>Definition index</span>
-              <input min="0" required step="1" type="number" value={definitionIndex} onChange={(event) => setDefinitionIndex(event.currentTarget.value)} />
-            </label>
           </div>
-          <label>
-            <span>Definitions <small>ONE PER LINE</small></span>
-            <textarea required rows={4} value={definitions} onChange={(event) => setDefinitions(event.currentTarget.value)} />
-          </label>
+          <div className="etymology-form-list">
+            {etymologies.map((etymology, etymologyIndex) => (
+              <fieldset className="etymology-form" key={etymologyIndex}>
+                <legend>Etymology {etymologyIndex + 1}</legend>
+                {etymologies.length > 1 && (
+                  <button
+                    aria-label={`Remove etymology ${etymologyIndex + 1}`}
+                    className="remove-etymology-button"
+                    onClick={() => setEtymologies((current) => current.filter((_, index) => index !== etymologyIndex))}
+                    type="button"
+                  >
+                    <Minus size={15} />
+                  </button>
+                )}
+                <label>
+                  <span>Definitions <small>ONE PER LINE</small></span>
+                  <textarea
+                    required
+                    rows={3}
+                    value={etymology.definitions}
+                    onChange={(event) => {
+                      const definitions = event.currentTarget.value
+                      setEtymologies((current) => current.map((item, index) =>
+                        index === etymologyIndex ? { ...item, definitions } : item))
+                    }}
+                  />
+                </label>
+              </fieldset>
+            ))}
+          </div>
+          <button
+            className="add-etymology-button"
+            onClick={() => setEtymologies((current) => [...current, { definitions: '' }])}
+            type="button"
+          >
+            <Plus size={15} /> Add etymology
+          </button>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="dialog-actions">
             <button className="cancel-button" onClick={onClose} type="button">Cancel</button>

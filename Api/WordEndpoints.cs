@@ -61,20 +61,24 @@ public static class WordEndpoints
         {
             var word = new ElasticSearchWord
             {
+                ID = request.InternalId,
                 Word = request.Word.Trim(),
                 Language = request.Language.Trim(),
-                etym_index = request.EtymologyIndex,
-                def_index = request.DefinitionIndex,
-                Definition = request.Definitions
-                    .Where(definition => !string.IsNullOrWhiteSpace(definition))
-                    .Select(definition => definition.Trim())
+                Etyms = request.Etymologies
+                    .Select(etymology => new ElasticSearchWord.Etymology
+                    {
+                        Definition = etymology.Definitions
+                            .Where(definition => !string.IsNullOrWhiteSpace(definition))
+                            .Select(definition => definition.Trim())
+                            .ToArray()
+                    })
                     .ToArray()
             };
 
-            if (word.Definition.Length == 0)
+            if (word.Etyms.Length == 0 || word.Etyms.Any(etymology => etymology.Definition.Length == 0))
             {
                 return TypedResults.Problem(
-                    title: "At least one definition is required.",
+                    title: "Each etymology must contain at least one definition.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
@@ -106,9 +110,10 @@ public static class WordEndpoints
 
     private static WordResponse ToResponse(string id, ElasticSearchWord word) => new(
         id,
+        word.ID,
         word.Word,
         word.Language,
-        word.etym_index,
-        word.def_index,
-        word.Definition);
+        word.Etyms
+            .Select(etymology => new EtymologyResponse(etymology.Definition))
+            .ToArray());
 }

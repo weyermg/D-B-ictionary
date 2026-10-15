@@ -12,7 +12,7 @@ public sealed class ElasticSearchConnection
 
     public ElasticSearchConnection()
     {
-        var nodeAddresses = (Environment.GetEnvironmentVariable("ELASTICSEARCH_NODES") ?? "")
+        var nodeAddresses = (Environment.GetEnvironmentVariable("ELASTICSEARCH_NODES") ?? "http://10.0.0.6:9200,http://10.0.0.28:9200,http://10.0.0.109:9200")
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Select(address => new Uri(address));
 
@@ -75,20 +75,20 @@ public sealed class ElasticSearchConnection
                 .Bool(boolean => boolean
                     .Should(
                         should => should.MultiMatch(multiMatch => multiMatch
-                            .Fields(new[] { "word^5", "definition" }) // matches on word exactly are most relevant
+                            .Fields(new[] { "word^5", "etymologies.definitions" }) // matches on word exactly are most relevant
                             .Query(searchTerm)),
                         should => should.MultiMatch(multiMatch => multiMatch
-                            .Fields(new[] { "word^3", "definition" }) // matches on word with fuzziness are least relevant
+                            .Fields(new[] { "word^3", "etymologies.definitions" }) // matches on word with fuzziness are least relevant
                             .Query(searchTerm)
                             .Fuzziness("AUTO")),
                         should => should.MultiMatch(multiMatch => multiMatch
-                            .Fields(new[] { "word^4", "definition" }) // matches on word with bool prefix are moderately relevant
+                            .Fields(new[] { "word^4", "etymologies.definitions" }) // matches on word with bool prefix are moderately relevant
                             .Query(searchTerm)
                             .Type(TextQueryType.BoolPrefix))
                     )
                     .MinimumShouldMatch(1)
                     .Filter(filter => filter
-                        .Term(term => term
+                        .Term(term => term 
                             .Field("language.keyword")
                             .Value(language)
                         )

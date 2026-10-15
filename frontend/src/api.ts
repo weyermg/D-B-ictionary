@@ -1,18 +1,20 @@
 export interface Word {
-  id: string
+  documentId: string
+  internalId: number
   word: string
   language: string
-  etymologyIndex: number
-  definitionIndex: number
+  etymologies: Etymology[]
+}
+
+export interface Etymology {
   definitions: string[]
 }
 
 export interface CreateWord {
+  internalId: number
   word: string
   language: string
-  etymologyIndex: number
-  definitionIndex: number
-  definitions: string[]
+  etymologies: Etymology[]
 }
 
 interface ProblemDetails {

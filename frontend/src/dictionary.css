@@ -48,6 +48,8 @@
 .definitions { display: grid; gap: 6px; margin: 12px 0 14px; padding-left: 20px; color: #495b53; }
 .definitions li { padding-left: 3px; font-size: 14px; line-height: 1.65; }
 .definitions li::marker { color: var(--coral); font-family: 'Newsreader Variable', Georgia, serif; }
+.etymology-block + .etymology-block { margin-top: 12px; }
+.etymology-heading { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: 0.9px; }
 .entry-meta { display: flex; gap: 16px; font-size: 9px; letter-spacing: 0.8px; }
 .state-message { padding: 26px 0; color: var(--muted); font-size: 13px; }
 .error-message { color: var(--danger); }
@@ -60,6 +62,14 @@
 .icon-button { display: grid; place-items: center; width: 36px; height: 36px; color: var(--muted); background: transparent; border: 0; border-radius: 7px; }
 .icon-button:hover { color: var(--ink); background: #edf1ec; }
 .add-dialog form { display: grid; gap: 15px; }
+.etymology-form-list { display: grid; gap: 12px; }
+.etymology-form { position: relative; min-width: 0; margin: 0; padding: 12px; border: 1px solid #d6e0d8; border-radius: 8px; }
+.etymology-form legend { padding: 0 5px; color: var(--forest); font-size: 11px; font-weight: 800; }
+.etymology-form label { margin-top: 2px; }
+.remove-etymology-button { position: absolute; top: 5px; right: 8px; display: grid; place-items: center; width: 27px; height: 27px; color: var(--muted); background: transparent; border: 0; border-radius: 5px; }
+.remove-etymology-button:hover { color: var(--danger); background: #f8ebe8; }
+.add-etymology-button { display: inline-flex; align-items: center; justify-self: start; gap: 6px; padding: 5px 0; color: var(--forest); background: transparent; border: 0; font-size: 12px; font-weight: 800; }
+.add-etymology-button:hover { color: var(--forest-dark); }
 .add-dialog label { display: grid; gap: 7px; color: #46574f; font-size: 12px; font-weight: 700; }
 .add-dialog label span { display: flex; justify-content: space-between; align-items: baseline; }
 .add-dialog label small { color: #92a097; font-size: 9px; letter-spacing: 0.8px; }
