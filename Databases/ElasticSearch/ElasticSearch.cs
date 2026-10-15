@@ -1,4 +1,5 @@
 using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.QueryDsl;
 using Elastic.Transport;
 
 namespace ElasticSearch;
@@ -16,7 +17,10 @@ public sealed class ElasticSearchConnection
             .Select(address => new Uri(address));
 
         var pool = new StaticNodePool(nodeAddresses);
-        var settings = new ElasticsearchClientSettings(pool).DefaultIndex(IndexName);
+        var settings = new ElasticsearchClientSettings(pool)
+            .DefaultIndex(IndexName)
+            .RequestTimeout(TimeSpan.FromSeconds(5))
+            .MaxRetryTimeout(TimeSpan.FromSeconds(10));
         Client = new ElasticsearchClient(settings);
     }
 
@@ -55,12 +59,6 @@ public sealed class ElasticSearchConnection
         return response.Id;
     }
 
-    public async Task<ElasticSearchWord?> GetWord(string id, CancellationToken cancellationToken = default)
-    {
-        var response = await Client.GetAsync<ElasticSearchWord>(id, cancellationToken);
-        return response.Found ? response.Source : null;
-    }
-
     public async Task<List<(string Id, ElasticSearchWord Word)>> FuzzyFindWords(
         string searchTerm,
         string language,
@@ -72,16 +70,23 @@ public sealed class ElasticSearchConnection
         }
 
         var response = await Client.SearchAsync<ElasticSearchWord>(search => search
-            .Size(20)
+            .Size(10)
             .Query(query => query
                 .Bool(boolean => boolean
-                    .Must(must => must
-                        .MultiMatch(multiMatch => multiMatch
-                            .Fields(new[] { "word^3", "definition" })
+                    .Should(
+                        should => should.MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^5", "definition" }) // matches on word exactly are most relevant
+                            .Query(searchTerm)),
+                        should => should.MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^3", "definition" }) // matches on word with fuzziness are least relevant
                             .Query(searchTerm)
-                            .Fuzziness("AUTO")
-                        )
+                            .Fuzziness("AUTO")),
+                        should => should.MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^4", "definition" }) // matches on word with bool prefix are moderately relevant
+                            .Query(searchTerm)
+                            .Type(TextQueryType.BoolPrefix))
                     )
+                    .MinimumShouldMatch(1)
                     .Filter(filter => filter
                         .Term(term => term
                             .Field("language.keyword")
