@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace D_B_ictionary;
 
 public partial class MainWindowViewModel : ObservableObject
 {
     private readonly ElasticSearch.ElasticSearchConnection _connection;
+    private readonly IAddWordDialogService _addWordDialog;
     private readonly Task _initializationTask;
     private CancellationTokenSource? _searchCancellation;
     private bool _isInitialized;
@@ -20,9 +22,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsMessageVisible => !string.IsNullOrWhiteSpace(Message);
 
-    public MainWindowViewModel(ElasticSearch.ElasticSearchConnection connection)
+    public MainWindowViewModel(
+        ElasticSearch.ElasticSearchConnection connection,
+        IAddWordDialogService addWordDialog)
     {
         _connection = connection;
+        _addWordDialog = addWordDialog;
         _initializationTask = InitializeAsync();
     }
 
@@ -45,6 +50,34 @@ public partial class MainWindowViewModel : ObservableObject
         var cancellation = new CancellationTokenSource();
         _searchCancellation = cancellation;
         _ = SearchAfterDelayAsync(value.Trim(), cancellation);
+    }
+
+    [RelayCommand]
+    private async Task AddWordAsync()
+    {
+        await _initializationTask;
+        if (!_isInitialized)
+        {
+            Message = "Elasticsearch initialization failed.";
+            return;
+        }
+
+        var word = await _addWordDialog.ShowAsync();
+        if (word is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _connection.AddWord(word);
+            Message = "Word added.";
+            SearchText = word.Word;
+        }
+        catch
+        {
+            Message = "Could not add the word to Elasticsearch.";
+        }
     }
 
     private async Task InitializeAsync()

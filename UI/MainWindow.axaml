@@ -11,18 +11,25 @@
         MinHeight="360"
         Background="#F2F6F3">
   <Grid Margin="32" RowDefinitions="Auto,*">
-    <Border Background="#FFFFFF"
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+          <Border Background="#FFFFFF"
             BorderBrush="#D5E0D9"
             BorderThickness="1"
             CornerRadius="10"
             Padding="14,4">
       <TextBox Text="{Binding SearchText, Mode=TwoWay}"
-               PlaceholderText="Search words and definitions"
-               FontSize="18"
-               Background="Transparent"
-               BorderThickness="0"
-               VerticalContentAlignment="Center" />
-    </Border>
+         PlaceholderText="Search words and definitions"
+         FontSize="18"
+         Background="Transparent"
+         BorderThickness="0"
+         VerticalContentAlignment="Center" />
+          </Border>
+          <Button Grid.Column="1"
+            Content="Add word"
+            Command="{Binding AddWordCommand}"
+            Padding="18,10"
+            VerticalAlignment="Stretch" />
+        </Grid>
 
     <Grid Grid.Row="1" Margin="0,20,0,0" RowDefinitions="Auto,*">
       <TextBlock Text="{Binding Message}"
