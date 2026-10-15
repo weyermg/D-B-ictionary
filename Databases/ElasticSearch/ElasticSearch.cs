@@ -1,4 +1,5 @@
 using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.QueryDsl;
 using Elastic.Transport;
 
 namespace ElasticSearch;
@@ -72,16 +73,23 @@ public sealed class ElasticSearchConnection
         }
 
         var response = await Client.SearchAsync<ElasticSearchWord>(search => search
-            .Size(20)
+            .Size(10)
             .Query(query => query
                 .Bool(boolean => boolean
-                    .Must(must => must
-                        .MultiMatch(multiMatch => multiMatch
-                            .Fields(new[] { "word^3", "definition" })
+                    .Should(
+                        should => should.MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^5", "definition" }) // matches on word exactly are most relevant
+                            .Query(searchTerm)),
+                        should => should.MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^3", "definition" }) // matches on word with fuzziness are least relevant
                             .Query(searchTerm)
-                            .Fuzziness("AUTO")
-                        )
+                            .Fuzziness("AUTO")),
+                        should => should.MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^4", "definition" }) // matches on word with bool prefix are moderately relevant
+                            .Query(searchTerm)
+                            .Type(TextQueryType.BoolPrefix))
                     )
+                    .MinimumShouldMatch(1)
                     .Filter(filter => filter
                         .Term(term => term
                             .Field("language.keyword")
