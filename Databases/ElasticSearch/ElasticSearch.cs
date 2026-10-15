@@ -17,7 +17,10 @@ public sealed class ElasticSearchConnection
             .Select(address => new Uri(address));
 
         var pool = new StaticNodePool(nodeAddresses);
-        var settings = new ElasticsearchClientSettings(pool).DefaultIndex(IndexName);
+        var settings = new ElasticsearchClientSettings(pool)
+            .DefaultIndex(IndexName)
+            .RequestTimeout(TimeSpan.FromSeconds(5))
+            .MaxRetryTimeout(TimeSpan.FromSeconds(10));
         Client = new ElasticsearchClient(settings);
     }
 
@@ -54,12 +57,6 @@ public sealed class ElasticSearchConnection
         }
 
         return response.Id;
-    }
-
-    public async Task<ElasticSearchWord?> GetWord(string id, CancellationToken cancellationToken = default)
-    {
-        var response = await Client.GetAsync<ElasticSearchWord>(id, cancellationToken);
-        return response.Found ? response.Source : null;
     }
 
     public async Task<List<(string Id, ElasticSearchWord Word)>> FuzzyFindWords(
