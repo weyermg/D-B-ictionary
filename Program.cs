@@ -1,12 +1,12 @@
-if (args.Contains("--ingest", StringComparer.Ordinal))
-{
-    Ingester.Parser.Skim();
-    return;
-}
+using System;
 
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
-app.UseDefaultFiles();
-app.UseStaticFiles();
-app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ok" }));
-app.Run();
+namespace Interaction
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Ingester.Parser.Skim();
+        }
+    }
+}
