@@ -1,0 +1,44 @@
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/newsreader';
+
+:root {
+  font-family: 'Manrope Variable', sans-serif;
+  color: #1e302b;
+  background: #f3f6f2;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+
+  --ink: #1e302b;
+  --muted: #6c7a73;
+  --line: #dce4dd;
+  --paper: #fbfcf9;
+  --field: #ffffff;
+  --forest: #245c4f;
+  --forest-dark: #17463c;
+  --coral: #c65a40;
+  --danger: #a63d35;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(214, 230, 219, 0.55), transparent 34rem),
+    #f3f6f2;
+}
+
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 3px solid rgba(198, 90, 64, 0.36);
+  outline-offset: 2px;
+}
+
+::selection { color: #fff; background: #245c4f; }

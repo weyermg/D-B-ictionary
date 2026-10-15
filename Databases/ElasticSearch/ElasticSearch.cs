@@ -1,107 +1,99 @@
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
-namespace ElasticSearch
+
+namespace ElasticSearch;
+
+public sealed class ElasticSearchConnection
 {
+    private const string IndexName = "dictionary-words";
 
-    public class ElasticSearchConnection
+    public ElasticsearchClient Client { get; }
+
+    public ElasticSearchConnection()
     {
-        public ElasticsearchClient Client { get; private set; }
-        public ElasticSearchConnection()
+        var nodeAddresses = (Environment.GetEnvironmentVariable("ELASTICSEARCH_NODES") ?? "")
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(address => new Uri(address));
+
+        var pool = new StaticNodePool(nodeAddresses);
+        var settings = new ElasticsearchClientSettings(pool).DefaultIndex(IndexName);
+        Client = new ElasticsearchClient(settings);
+    }
+
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        var existsResponse = await Client.Indices.ExistsAsync(IndexName, cancellationToken);
+        if (!existsResponse.Exists)
         {
-            var nodes = new Uri[]
+            var createResponse = await Client.Indices.CreateAsync(IndexName, cancellationToken);
+            if (!createResponse.IsValidResponse)
             {
-                new Uri("http://10.0.0.6:9200"),
-                new Uri("http://10.0.0.28:9200"),
-                new Uri("http://10.0.0.109:9200")
-            };
-
-            var pool = new StaticNodePool(nodes);
-
-            var settings = new ElasticsearchClientSettings(pool)
-                .DefaultIndex("dictionary-words");
-
-            var client = new ElasticsearchClient(settings);
-
-            Client = client;
-        }
-
-        public async Task InitializeAsync()
-        {
-            var deleteIndexResponse = await Client.Indices.DeleteAsync(
-                "dictionary-words",
-                request => request.IgnoreUnavailable(true)
-            );
-            if (!deleteIndexResponse.IsValidResponse)
-            {
-                throw new InvalidOperationException(deleteIndexResponse.DebugInformation);
-            }
-
-            var createIndexResponse = await Client.Indices.CreateAsync("dictionary-words");
-            if (!createIndexResponse.IsValidResponse)
-            {
-                throw new InvalidOperationException(createIndexResponse.DebugInformation);
-            }
-
-            await AddWord(new ElasticSearchWord
-            {
-                Word = "cat",
-                Language = "en",
-                etym_index = 1,
-                def_index = 1,
-                Definition = ["a furry animal"]
-            });
-        }
-
-        public async Task AddWord(ElasticSearchWord word)
-        {
-            var indexResponse = await Client.IndexAsync(word, request => request
-                .Refresh(Refresh.WaitFor)
-            );
-
-            if (!indexResponse.IsValidResponse)
-            {
-                throw new InvalidOperationException(indexResponse.DebugInformation);
+                throw new InvalidOperationException(createResponse.DebugInformation);
             }
         }
+    }
 
-        public async Task<List<ElasticSearchWord>> FuzzyFindWords(string searchTerm, string language)
+    public async Task<string> AddWord(
+        ElasticSearchWord word,
+        string? id = null,
+        CancellationToken cancellationToken = default)
+    {
+        var response = id is null
+            ? await Client.IndexAsync(word, request => request.Refresh(Refresh.WaitFor), cancellationToken)
+            : await Client.IndexAsync(word, id, request => request.Refresh(Refresh.WaitFor), cancellationToken);
+
+        if (!response.IsValidResponse || string.IsNullOrWhiteSpace(response.Id))
         {
-            if (string.IsNullOrWhiteSpace(searchTerm))
-            {
-                return new List<ElasticSearchWord>();
-            }
+            throw new InvalidOperationException(response.DebugInformation);
+        }
 
-            var searchResponse = await Client.SearchAsync<ElasticSearchWord>(search => search
-                .Size(20)
-                .Query(query => query
-                    .Bool(boolean => boolean
-                        .Must(must => must
-                            .MultiMatch(multiMatch => multiMatch
-                                .Fields(new[] { "word^3", "definition" })
-                                .Query(searchTerm)
-                                .Fuzziness("AUTO")
-                            )
+        return response.Id;
+    }
+
+    public async Task<ElasticSearchWord?> GetWord(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await Client.GetAsync<ElasticSearchWord>(id, cancellationToken);
+        return response.Found ? response.Source : null;
+    }
+
+    public async Task<List<(string Id, ElasticSearchWord Word)>> FuzzyFindWords(
+        string searchTerm,
+        string language,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            return [];
+        }
+
+        var response = await Client.SearchAsync<ElasticSearchWord>(search => search
+            .Size(20)
+            .Query(query => query
+                .Bool(boolean => boolean
+                    .Must(must => must
+                        .MultiMatch(multiMatch => multiMatch
+                            .Fields(new[] { "word^3", "definition" })
+                            .Query(searchTerm)
+                            .Fuzziness("AUTO")
                         )
-                        .Filter(filter => filter
-                            .Term(term => term
-                                .Field("language.keyword")
-                                .Value(language)
-                            )
+                    )
+                    .Filter(filter => filter
+                        .Term(term => term
+                            .Field("language.keyword")
+                            .Value(language)
                         )
                     )
                 )
-            );
+            ), cancellationToken);
 
-            if (!searchResponse.IsValidResponse)
-            {
-                throw new InvalidOperationException(searchResponse.DebugInformation);
-            }
-
-            var source = searchResponse.Hits
-                .Select(hit => hit.Source)
-                .OfType<ElasticSearchWord>()
-                .ToList();
-            return source;
+        if (!response.IsValidResponse)
+        {
+            throw new InvalidOperationException(response.DebugInformation);
         }
+
+        return response.Hits
+            .Where(hit => hit.Source is not null)
+            .Select(hit => (hit.Id, hit.Source!))
+            .ToList();
     }
 }

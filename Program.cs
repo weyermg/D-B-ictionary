@@ -1,16 +1,32 @@
-using Avalonia;
-using AvaloniaUI.DiagnosticsSupport.Avalonia;
+using D_B_ictionary.Api;
+using ElasticSearch;
 
-namespace D_B_ictionary;
+var builder = WebApplication.CreateBuilder(args);
 
-internal static class Program
+builder.Services.AddOpenApi();
+builder.Services.AddValidation();
+builder.Services.AddSingleton<ElasticSearchConnection>();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
 {
-    [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
-
-    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
-        .UsePlatformDetect()
-        .WithDeveloperTools()
-        .LogToTrace();
+    app.MapOpenApi();
 }
+
+app.MapGet("/health", () => TypedResults.Ok(new { status = "ok" }))
+    .WithName("HealthCheck")
+    .WithSummary("Check API health");
+app.MapWordEndpoints();
+
+var elasticSearch = app.Services.GetRequiredService<ElasticSearchConnection>();
+try
+{
+    await elasticSearch.InitializeAsync(app.Lifetime.ApplicationStopping);
+}
+catch (Exception exception)
+{
+    app.Logger.LogError(exception, "Elasticsearch initialization failed; the API will remain available.");
+}
+
+app.Run();
