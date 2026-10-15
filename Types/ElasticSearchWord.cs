@@ -11,6 +11,6 @@ public class ElasticSearchWord
     [JsonPropertyName("def_index")]
     public required int def_index {get; set;}
     [JsonPropertyName("definition")]
-    public required string Definition {get; set;}
+    public required string[] Definition {get; set;}
 
 }
