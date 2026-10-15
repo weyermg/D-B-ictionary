@@ -19,6 +19,8 @@ namespace Interaction
                 Definition = ["a furry animal"]
             };
 
+            await connection.AddWord(document);
+
             var wordResult = await connection.FuzzyFindWord("furr", "en");
             if (wordResult is null)
             {
@@ -31,7 +33,7 @@ namespace Interaction
             Console.WriteLine($"Language: {wordResult.Language}");
             Console.WriteLine($"Etym Index: {wordResult.etym_index}");
             Console.WriteLine($"Def Index: {wordResult.def_index}");
-            Console.WriteLine($"Definition: {wordResult.Definition}");
+            Console.WriteLine($"Definition: {string.Join(", ", wordResult.Definition.Select(definition => definition))}");
         }
     }
 }
