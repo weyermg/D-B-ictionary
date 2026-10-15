@@ -1,11 +1,9 @@
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
-using System.Threading.Tasks;
-
 namespace ElasticSearch
 {
 
-    class ElasticSearchConnection
+    public class ElasticSearchConnection
     {
         public ElasticsearchClient Client { get; private set; }
         public ElasticSearchConnection()
@@ -24,47 +22,57 @@ namespace ElasticSearch
 
             var client = new ElasticsearchClient(settings);
 
-            var response = client.Ping();
-            Console.WriteLine(response.IsValidResponse
-                ? "Elasticsearch is reachable."
-                : response.DebugInformation);
-                
             Client = client;
-
-            var deleteIndexResponse = client.Indices.DeleteAsync(
-                "dictionary-words",
-                request => request.IgnoreUnavailable(true)
-            ).Result;
-            if (!deleteIndexResponse.IsValidResponse)
-            {
-                Console.WriteLine(deleteIndexResponse.DebugInformation);
-                return;
-            }
-
-            var createIndexResponse = client.Indices.CreateAsync("dictionary-words").Result;
-            if (!createIndexResponse.IsValidResponse)
-            {
-                Console.WriteLine(createIndexResponse.DebugInformation);
-                return;
-            }
         }
 
-        public async Task AddWord(ElasticSearchWord word) {
+        public async Task InitializeAsync()
+        {
+            var deleteIndexResponse = await Client.Indices.DeleteAsync(
+                "dictionary-words",
+                request => request.IgnoreUnavailable(true)
+            );
+            if (!deleteIndexResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(deleteIndexResponse.DebugInformation);
+            }
+
+            var createIndexResponse = await Client.Indices.CreateAsync("dictionary-words");
+            if (!createIndexResponse.IsValidResponse)
+            {
+                throw new InvalidOperationException(createIndexResponse.DebugInformation);
+            }
+
+            await AddWord(new ElasticSearchWord
+            {
+                Word = "cat",
+                Language = "en",
+                etym_index = 1,
+                def_index = 1,
+                Definition = ["a furry animal"]
+            });
+        }
+
+        public async Task AddWord(ElasticSearchWord word)
+        {
             var indexResponse = await Client.IndexAsync(word, request => request
                 .Refresh(Refresh.WaitFor)
             );
 
             if (!indexResponse.IsValidResponse)
             {
-                Console.WriteLine(indexResponse.DebugInformation);
-                return;
+                throw new InvalidOperationException(indexResponse.DebugInformation);
             }
-            Console.WriteLine("Document indexed successfully.");
         }
 
-        public async Task<ElasticSearchWord?> FuzzyFindWord(string searchTerm, string language) 
+        public async Task<List<ElasticSearchWord>> FuzzyFindWords(string searchTerm, string language)
         {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                return new List<ElasticSearchWord>();
+            }
+
             var searchResponse = await Client.SearchAsync<ElasticSearchWord>(search => search
+                .Size(20)
                 .Query(query => query
                     .Bool(boolean => boolean
                         .Must(must => must
@@ -86,13 +94,14 @@ namespace ElasticSearch
 
             if (!searchResponse.IsValidResponse)
             {
-                Console.WriteLine(searchResponse.DebugInformation);
-                return null;
+                throw new InvalidOperationException(searchResponse.DebugInformation);
             }
 
-            var source = searchResponse.Hits.Select(word => word.Source).ToList();
-            Console.WriteLine($"Found {source.Count} matching words.");
-            return source.FirstOrDefault();
+            var source = searchResponse.Hits
+                .Select(hit => hit.Source)
+                .OfType<ElasticSearchWord>()
+                .ToList();
+            return source;
         }
     }
 }

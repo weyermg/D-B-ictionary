@@ -1,39 +1,16 @@
-using System;
-using System.Threading.Tasks;
-namespace Interaction
+using Avalonia;
+using AvaloniaUI.DiagnosticsSupport.Avalonia;
+
+namespace D_B_ictionary;
+
+internal static class Program
 {
-    class Program
-    {
-        static async Task Main()
-        {
-            //Ingester.Parser.Skim();
-            var connection = new ElasticSearch.ElasticSearchConnection();
+    [STAThread]
+    public static void Main(string[] args) => BuildAvaloniaApp()
+        .StartWithClassicDesktopLifetime(args);
 
-
-            var document = new ElasticSearchWord
-            {
-                Word = "Cat",
-                Language = "en",
-                etym_index = 1,
-                def_index = 1,
-                Definition = ["a furry animal"]
-            };
-
-            await connection.AddWord(document);
-
-            var wordResult = await connection.FuzzyFindWord("furr", "en");
-            if (wordResult is null)
-            {
-                Console.WriteLine("No matching word was found.");
-                return;
-            }
-
-            Console.WriteLine("Document found.");
-            Console.WriteLine($"Word: {wordResult.Word}");
-            Console.WriteLine($"Language: {wordResult.Language}");
-            Console.WriteLine($"Etym Index: {wordResult.etym_index}");
-            Console.WriteLine($"Def Index: {wordResult.def_index}");
-            Console.WriteLine($"Definition: {string.Join(", ", wordResult.Definition.Select(definition => definition))}");
-        }
-    }
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
+        .UsePlatformDetect()
+        .WithDeveloperTools()
+        .LogToTrace();
 }
