@@ -1,16 +1,19 @@
 using System.Text.Json.Serialization;
 
-public class ElasticSearchWord
+public record ElasticSearchWord
 {
+    [JsonPropertyName("id")]
+    public required int ID {get; init;}
     [JsonPropertyName("word")]
-    public required string Word {get; set;}
+    public required string Word {get; init;}
     [JsonPropertyName("language")]
-    public required string Language {get; set;}
-    [JsonPropertyName("etym_index")]
-    public required int etym_index {get; set;}
-    [JsonPropertyName("def_index")]
-    public required int def_index {get; set;}
-    [JsonPropertyName("definition")]
-    public required string[] Definition {get; set;}
+    public required string Language {get; init;}
+    [JsonPropertyName("etymologies")]
+    public required Etymology[] Etyms {get; init;}
 
+    public record Etymology
+    {
+        [JsonPropertyName("definitions")]
+        public required string[] Definition {get; init;}
+    }
 }

@@ -38,19 +38,50 @@ namespace Ingester
                         pageCount++;
                         string rawPageXml = r.ReadOuterXml();
                         string nsValue = ExtractNamespace(rawPageXml);
-                        string target = Path.Combine(output, $"ns_{nsValue}.xml");
-                        File.AppendAllText(target, rawPageXml + Environment.NewLine, Encoding.UTF8);
+                        if (int.Parse(nsValue) == 0)
+                        {
+                            ParsePage(rawPageXml);
+                        }
+                        
+                        //string target = Path.Combine(output, $"ns_{nsValue}.xml");
+                        //ile.AppendAllText(target, rawPageXml + Environment.NewLine, Encoding.UTF8);
 
                         if (pageCount % 1000 == 0)
                         {
                             double pct = (double)fs.Position / totalBytes * 100;
                             long currentMB = fs.Position / 1024 / 1024;
                             long totalMB = totalBytes / 1024 / 1024;
-                            Console.WriteLine($"[Processed {pageCount:N0} pages] Current Namespace Routed: {nsValue} | Progress: {currentMB:N0}MB / {totalMB:N0}MB ({pct:F2}%)");
+                            Console.WriteLine($"[Processed {pageCount:N0} pages] Current Namespace Routed:  | Progress: {currentMB:N0}MB / {totalMB:N0}MB ({pct:F2}%)");
                         }
                     }
                 }
             }
+        }
+
+        public static void ParsePage(String pageXml)
+        {
+            try
+            {
+                XmlReaderSettings subSettings = new XmlReaderSettings
+                {
+                    ConformanceLevel = ConformanceLevel.Fragment
+                };
+                using (StringReader sr = new StringReader(pageXml))
+                using (XmlReader subReader = XmlReader.Create(sr, subSettings))
+                {
+                    while (subReader.Read())
+                    {
+                        if (subReader.NodeType == XmlNodeType.Element && subReader.Name == "text")
+                        {
+                            Console.WriteLine(subReader.ReadElementContentAsString());
+                            return;
+                        }
+                    }
+                }
+            } catch
+            {
+                
+            } 
         }
 
         private static string ExtractNamespace(string pageXml)
