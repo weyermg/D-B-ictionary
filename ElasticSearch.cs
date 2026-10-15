@@ -90,8 +90,9 @@ namespace ElasticSearch
                 return null;
             }
 
-            var source = searchResponse.Hits.FirstOrDefault()?.Source;
-            return source;
+            var source = searchResponse.Hits.Select(word => word.Source).ToList();
+            Console.WriteLine($"Found {source.Count} matching words.");
+            return source.FirstOrDefault();
         }
     }
 }
