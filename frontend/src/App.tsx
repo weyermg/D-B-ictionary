@@ -59,10 +59,6 @@ function App() {
           <span className="wordmark-icon"><BookOpenText size={19} strokeWidth={1.8} /></span>
           <span>D/B</span>
         </a>
-        <div className="topbar-meta">
-          <span className="connection-dot" />
-          <span>ENGLISH INDEX</span>
-        </div>
       </header>
 
       <section className="search-area" aria-label="Dictionary search">
@@ -79,7 +75,6 @@ function App() {
               value={searchText}
               onChange={(event) => setSearchText(event.currentTarget.value)}
             />
-            <kbd className="search-hint">⌘ K</kbd>
           </div>
           <button className="add-button" type="button" onClick={() => setIsAddOpen(true)}>
             <Plus size={18} aria-hidden="true" />
