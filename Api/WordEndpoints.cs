@@ -35,6 +35,10 @@ public static class WordEndpoints
                     .ToArray();
                 return TypedResults.Ok(response);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 logger.LogError(exception, "Elasticsearch word search failed.");
@@ -78,6 +82,10 @@ public static class WordEndpoints
             {
                 var id = await connection.AddWord(word, cancellationToken: cancellationToken);
                 return TypedResults.Created($"/api/words/{Uri.EscapeDataString(id)}", ToResponse(id, word));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception exception)
             {

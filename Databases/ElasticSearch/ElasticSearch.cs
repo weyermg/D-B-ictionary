@@ -44,6 +44,11 @@ public sealed class ElasticSearchConnection
 
         if (!response.IsValidResponse || string.IsNullOrWhiteSpace(response.Id))
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
             throw new InvalidOperationException(response.DebugInformation);
         }
 
@@ -88,6 +93,11 @@ public sealed class ElasticSearchConnection
 
         if (!response.IsValidResponse)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
             throw new InvalidOperationException(response.DebugInformation);
         }
 
