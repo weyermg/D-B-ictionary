@@ -1,5 +1,21 @@
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/newsreader';
+@import 'tailwindcss';
+
+@theme {
+  --breakpoint-sm: 600px;
+  --color-ink: #1e302b;
+  --color-muted: #6c7a73;
+  --color-line: #dce4dd;
+  --color-paper: #fbfcf9;
+  --color-field: #ffffff;
+  --color-forest: #245c4f;
+  --color-forest-dark: #17463c;
+  --color-coral: #c65a40;
+  --color-danger: #a63d35;
+  --font-sans: 'Manrope Variable', sans-serif;
+  --font-serif: 'Newsreader Variable', Georgia, serif;
+}
 
 :root {
   font-family: 'Manrope Variable', sans-serif;
@@ -23,6 +39,11 @@
   --danger: #a63d35;
 }
 
+@keyframes page-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes row-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-enter { from { opacity: 0; transform: translateY(8px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
 * { box-sizing: border-box; }
 
 body {
@@ -36,9 +57,13 @@ body {
 
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
-button:focus-visible, input:focus-visible, textarea:focus-visible {
+button:focus-visible {
   outline: 3px solid rgba(198, 90, 64, 0.36);
   outline-offset: 2px;
 }
 
 ::selection { color: #fff; background: #245c4f; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
