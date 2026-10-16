@@ -32,7 +32,7 @@ async function getErrorMessage(response: Response): Promise<string> {
 }
 
 export async function searchWords(query: string, signal: AbortSignal): Promise<Word[]> {
-  const params = new URLSearchParams({ query, language: 'en' })
+  const params = new URLSearchParams({ query, language: 'English' })
   const response = await fetch(`/api/words?${params}`, { signal })
   if (!response.ok) throw new Error(await getErrorMessage(response))
   return await response.json() as Word[]

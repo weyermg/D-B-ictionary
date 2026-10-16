@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -11,7 +12,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
+using D_B_ictionary.Api;
 using Elastic.Clients.Elasticsearch;
+using ElasticSearch;
+using static ElasticSearchWord;
 
 namespace Ingester
 {
@@ -32,49 +36,110 @@ namespace Ingester
         }
         public static void Skim()
         {
+            var econ = new ElasticSearchConnection();
+            object globalID = 0;
             string path = "../enwiktionary.xml";
 
-            XmlReaderSettings settings = new XmlReaderSettings
-            {
-                DtdProcessing = DtdProcessing.Ignore,
-                Async = false
-            };
+            const int queueCapacity = 500;
+            const int workerCount = 8;
 
-            using (FileStream fs = File.OpenRead(path))
-            using (XmlReader r = XmlReader.Create(fs, settings))
+            using var queue = new BlockingCollection<ElasticSearchWord>(boundedCapacity: queueCapacity);
+            var uploadErrors = new ConcurrentQueue<Exception>();
+            int nextId = 0;
+
+            Task[] workers = Enumerable.Range(0, workerCount).Select(_ => Task.Run(async () =>
             {
+                foreach (ElasticSearchWord item in queue.GetConsumingEnumerable())
+                {
+                    try
+                    {
+                        await econ.AddWord(item);
+                    } catch (Exception ex)
+                    {
+                        uploadErrors.Enqueue(new Exception($"Failed to upload word: {item.Word}", ex));
+                    }
+                }
+            })).ToArray();
+
+            Exception? producerError = null;
+
+            try
+            {
+                XmlReaderSettings settings = new XmlReaderSettings
+                {
+                    DtdProcessing = DtdProcessing.Ignore,
+                    Async = false
+                };
+
+                using FileStream fs = File.OpenRead(path);
+                using XmlReader r = XmlReader.Create(fs, settings);
+                
                 long totalBytes = fs.Length;
                 long pageCount = 0;
                 while (r.Read())
                 {
-                    if (r.NodeType == XmlNodeType.Element && r.Name == "page")
-                    {
-                        pageCount++;
-                        string rawPageXml = r.ReadOuterXml();
-                        string nsValue = ExtractNamespace(rawPageXml);
-                        if (nsValue == "-11")
-                        {
-                            continue;
-                        }
-                        if (int.Parse(nsValue) == 0)
-                        {
-                            string page = GetText(rawPageXml);
-                            var word = ParsePage(page);
-                            PrintWord(word);
-                        }
-                        return;
+                    if (r.NodeType != XmlNodeType.Element || r.Name != "page") continue;
 
-                        /*if (pageCount % 1000 == 0)
+                    pageCount++;
+                    string rawPageXml = r.ReadOuterXml();
+                    string name = ExtractName(rawPageXml);
+                    string nsValue = ExtractNamespace(rawPageXml);
+                    if (!int.TryParse(nsValue, out int ns) || ns != 0) continue;
+
+                    string page = GetText(rawPageXml);
+                    var word = ParsePage(page);
+                    
+                    foreach (var language in word)
+                    {
+                        List<Etymology> etyms = [];
+                        foreach (var etymology in language.Value)
                         {
-                            double pct = (double)fs.Position / totalBytes * 100;
-                            long currentMB = fs.Position / 1024 / 1024;
-                            long totalMB = totalBytes / 1024 / 1024;
-                            Console.WriteLine($"[Processed {pageCount:N0} pages] Current Namespace Routed:  | Progress: {currentMB:N0}MB / {totalMB:N0}MB ({pct:F2}%)");
-                        }*/
+                            List<string> defs = [];
+                            foreach (var pos in etymology) defs.AddRange(pos.Value);
+
+                            etyms.Add(new Etymology
+                            {
+                                Definition = defs.ToArray()
+                            });
+                        }
+
+                        var document = new ElasticSearchWord
+                        {
+                            ID = nextId++,
+                            Word = name,
+                            Language = language.Key,
+                            Etyms = etyms.ToArray()
+                        };
+                        queue.Add(document);
+                    }
+
+                    if (pageCount % 1000 == 0)
+                    {
+                        double pct = (double)fs.Position / totalBytes * 100;
+                        long currentMB = fs.Position / 1024 / 1024;
+                        long totalMB = totalBytes / 1024 / 1024;
+                        Console.WriteLine($"[Processed {pageCount:N0} pages] Current Namespace Routed:  | Progress: {currentMB:N0}MB / {totalMB:N0}MB ({pct:F2}%)");
                     }
                 }
+            } catch (Exception ex)
+            {
+                producerError = ex;
+                Console.WriteLine($"Producer failed: {ex}");
+            } finally
+            {
+                queue.CompleteAdding();
             }
+
+            Task.WhenAll(workers).GetAwaiter().GetResult();
+            Console.WriteLine($"Upload complete. Failed documents: {uploadErrors.Count:N0}");
+            if (producerError != null)
+            {
+                throw new InvalidOperationException("XML import failed.", producerError);
+            }
+            if (!uploadErrors.IsEmpty) throw new AggregateException(uploadErrors);
+            
         }
+
         public static void PrintWord( Dictionary<string, List<Dictionary<string, List<string>>>> word)
         {
             foreach (var language in word)
@@ -405,13 +470,13 @@ namespace Ingester
                 {
                     while (subReader.Read())
                     {
-                        if (subReader.NodeType == XmlNodeType.Element && subReader.Name == "title")
+                        /*if (subReader.NodeType == XmlNodeType.Element && subReader.Name == "title")
                         {
                             if (!subReader.ReadElementContentAsString().Equals("free"))
                             {
                                 return "-11";
                             }
-                        }
+                        }*/
                         if (subReader.NodeType == XmlNodeType.Element && subReader.Name == "ns")
                         {
                             return subReader.ReadElementContentAsString();
@@ -424,5 +489,33 @@ namespace Ingester
             }
             return "-10";
         }
+
+        private static string ExtractName(string pageXml)
+        {
+            try
+            {
+                XmlReaderSettings subSettings = new XmlReaderSettings
+                {
+                    ConformanceLevel = ConformanceLevel.Fragment
+                };
+                using (StringReader sr = new StringReader(pageXml))
+                using (XmlReader subReader = XmlReader.Create(sr, subSettings))
+                {
+                    while (subReader.Read())
+                    {
+                        if (subReader.NodeType == XmlNodeType.Element && subReader.Name == "title")
+                        {
+                            return subReader.ReadElementContentAsString();
+                        }
+                    }
+                }
+            } catch
+            {
+                
+            }
+            return "-1";
+        }
     }
+
+    
 }
